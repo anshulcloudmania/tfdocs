@@ -16,13 +16,17 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v2
 
-      - name: Install Terraform Docs
+      - name: Install jq (JSON Parser)
+        run: |
+          sudo apt-get install -y jq
+
+      - name: Fetch and Install Latest Version of Terraform Docs
         run: |
           echo "Fetching the latest version of terraform-docs"
-          version=$(curl -s https://api.github.com/repos/terraform-docs/terraform-docs/releases/latest | jq -r .tag_name)
-          echo "Version of terraform-docs: $version"
+          version=$(curl -s https://api.github.com/repos/terraform-docs/terraform-docs/releases/latest | jq -r .tag_name | sed 's/v//')
+          echo "Latest version of terraform-docs: $version"
 
-          download_url="https://github.com/terraform-docs/terraform-docs/releases/download/${version}/terraform-docs-${version}-linux-amd64.tar.gz"
+          download_url="https://github.com/terraform-docs/terraform-docs/releases/download/v${version}/terraform-docs-v${version}-linux-amd64.tar.gz"
           echo "Download URL: $download_url"
 
           curl -Lo ./terraform-docs.tar.gz "$download_url"
@@ -30,14 +34,17 @@ jobs:
           chmod +x terraform-docs
           sudo mv terraform-docs /usr/local/bin/terraform-docs
 
+      - name: Update .terraform-docs.yml with Latest Version
+        run: |
+          echo "Updating .terraform-docs.yml to version $version"
+          sed -i "s/^version: .*/version: \"$version\"/" .terraform-docs.yml
+
       - name: Ensure README.md Exists and Has Markers
         run: |
-          # Create README.md if it doesn't exist
           if [ ! -f README.md ]; then
             echo "# Project Documentation" > README.md
           fi
 
-          # Add markers if they are missing
           if ! grep -q "<!-- BEGIN_TF_DOCS -->" README.md; then
             echo -e "\n<!-- BEGIN_TF_DOCS -->\n<!-- END_TF_DOCS -->" >> README.md
           fi
