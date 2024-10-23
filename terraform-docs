@@ -1,0 +1,23 @@
+# .terraform-docs.yml
+formatter: markdown
+version: "0.14"  # or whichever version you are using
+header-from: ""
+footer-from: ""
+sections:
+  hide:
+    - header
+    - footer
+    - dependencies
+    - modules
+  show:
+    - inputs
+    - outputs
+    - resources
+    - providers
+output:
+  file: ""
+  mode: inject
+  template: |
+    <!-- BEGIN_TF_DOCS -->
+    {{ .Content }}
+    <!-- END_TF_DOCS -->
