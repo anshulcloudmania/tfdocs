@@ -1,84 +1,68 @@
-name: Generate Terraform Docs
+name: Generate and Update Terraform Docs
 
 on: 
   pull_request:
     types: [opened, synchronize]
-  # push:
-  #   branches:
-  #     - main
   workflow_dispatch:
 
 jobs:
   generate-docs:
     name: Generate Terraform Docs
-    runs-on: humana-internal-cld3
+    runs-on: ubuntu-latest
     permissions:
       contents: write
+
     steps:
-    - name: checkout the repo
-      uses: actions/checkout@v2
+      - name: Checkout Repository
+        uses: actions/checkout@v2
 
-    - name: Install jq
-      run: |
-        sudo apt-get install -y jq
-
-    - name: Download and Install Terraform Docs
-      run: |
-          echo "Fetching the latest version of terrform-docs"
-
-          # Fetching the latest version of docs
+      - name: Install Terraform Docs
+        run: |
+          echo "Fetching the latest version of terraform-docs"
           version=$(curl -s https://api.github.com/repos/terraform-docs/terraform-docs/releases/latest | jq -r .tag_name)
           echo "Version of terraform-docs: $version"
 
-          # Download URL
           download_url="https://github.com/terraform-docs/terraform-docs/releases/download/${version}/terraform-docs-${version}-linux-amd64.tar.gz"
           echo "Download URL: $download_url"
 
-          # Download terraform-docs
           curl -Lo ./terraform-docs.tar.gz "$download_url"
-
-          # Extract and install docs
           tar -xzf terraform-docs.tar.gz
           chmod +x terraform-docs
           sudo mv terraform-docs /usr/local/bin/terraform-docs
-  
-    - name: Ensure README.md Exist 
-      run: |
-        if [ ! -f README.md ]; then
-          echo "# Project Documentation" > README.md
-        fi
 
-        if ! grep -q "<!-- BEGIN_TF_DOCS -->" README.md; then
-          echo -e "\n<!-- BEGIN_TF_DOCS -->\n<!-- END_TF_DOCS -->" >> README.md
-        fi
+      - name: Ensure README.md Exists and Has Markers
+        run: |
+          # Create README.md if it doesn't exist
+          if [ ! -f README.md ]; then
+            echo "# Project Documentation" > README.md
+          fi
 
+          # Add markers if they are missing
+          if ! grep -q "<!-- BEGIN_TF_DOCS -->" README.md; then
+            echo -e "\n<!-- BEGIN_TF_DOCS -->\n<!-- END_TF_DOCS -->" >> README.md
+          fi
 
-    # - name: Verify Docs Installation
-    #   run: |
-    #      echo "Verifying the installation of terraform-docs "
-    #      /usr/local/bin/terraform-docs --version
+      - name: Generate Terraform Docs and Update README
+        run: |
+          # Generate documentation from .tf files
+          /usr/local/bin/terraform-docs markdown . > tfdocs_content.md
 
-        
-    - name: Generate Terraform Docs
-      run: |
-        /usr/local/bin/terraform-docs markdown . > tfdocs_content.md
+          # Insert or update the content between the markers in README.md
+          awk 'BEGIN {p=1} /<!-- BEGIN_TF_DOCS -->/ {print; p=0} p; /<!-- END_TF_DOCS -->/ {p=1; system("cat tfdocs_content.md"); print}' README.md > temp_README.md
 
-        #Replace content between the markers
-        awk 'BEGIN {p=1} /<!-- BEGIN_TF_DOCS -->/ {print; p=0} p; /<!-- END_TF_DOCS -->/ {p=1; system("cat tfdocs_content.md"); print}' README.md > temp_README.md
+          # Overwrite README.md with updated content
+          mv temp_README.md README.md
 
-        # Move the updated file 
-        mv temp_README.md README.md
+      - name: Commit and Push Changes
+        run: |
+          git config --local user.email "${{ github.actor }}@users.noreply.github.com"
+          git config --local user.name "${{ github.actor }}"
+          git add README.md
+          git commit -m "Update Terraform Docs" || echo "No changes to commit"
 
-    - name: Commit Changes
-      run: |
-        git config --local user.email "${{github.actor}}@users.noreply.github.com"
-        git config --local user.name "${{github.actor}}"
-        git add README.md
-        git commit -m "Update Terraform Docs"
-      
-    - name: Push Changes to Github
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
-        git push origin HEAD:${{ github.head_ref }} -f
+      - name: Push Changes to GitHub
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
+          git push origin HEAD:${{ github.head_ref }} -f
