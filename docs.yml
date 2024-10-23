@@ -44,10 +44,13 @@ jobs:
 
       - name: Generate Terraform Docs and Update README
         run: |
-          # Generate documentation from .tf files
-          /usr/local/bin/terraform-docs markdown . > tfdocs_content.md
+          # Generate specific sections using the config file
+          /usr/local/bin/terraform-docs markdown --config ./.terraform-docs.yml . > tfdocs_content.md
 
-          # Insert or update the content between the markers in README.md
+          # Output the generated content to logs for debugging
+          cat tfdocs_content.md
+
+          # Replace content between the markers in README.md
           awk 'BEGIN {p=1} /<!-- BEGIN_TF_DOCS -->/ {print; p=0} p; /<!-- END_TF_DOCS -->/ {p=1; system("cat tfdocs_content.md"); print}' README.md > temp_README.md
 
           # Overwrite README.md with updated content
