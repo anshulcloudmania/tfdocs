@@ -34,34 +34,14 @@ jobs:
           chmod +x terraform-docs
           sudo mv terraform-docs /usr/local/bin/terraform-docs
 
-      - name: Update .terraform-docs.yml with Latest Version
-        run: |
-          echo "Updating .terraform-docs.yml to version $version"
-          sed -i "s/^version: .*/version: \"$version\"/" .terraform-docs.yml
-
-      - name: Ensure README.md Exists and Has Markers
-        run: |
-          if [ ! -f README.md ]; then
-            echo "# Project Documentation" > README.md
-          fi
-
-          if ! grep -q "<!-- BEGIN_TF_DOCS -->" README.md; then
-            echo -e "\n<!-- BEGIN_TF_DOCS -->\n<!-- END_TF_DOCS -->" >> README.md
-          fi
+          # Update .terraform-docs.yml with the latest version
+          echo "Updating .terraform-docs.yml to use version $version"
+          sed -i "s/^version:.*/version: \"$version\"/" .terraform-docs.yml
 
       - name: Generate Terraform Docs and Update README
         run: |
-          # Generate specific sections using the config file
-          /usr/local/bin/terraform-docs markdown --config ./.terraform-docs.yml . > tfdocs_content.md
-
-          # Output the generated content to logs for debugging
-          cat tfdocs_content.md
-
-          # Replace content between the markers in README.md
-          awk 'BEGIN {p=1} /<!-- BEGIN_TF_DOCS -->/ {print; p=0} p; /<!-- END_TF_DOCS -->/ {p=1; system("cat tfdocs_content.md"); print}' README.md > temp_README.md
-
-          # Overwrite README.md with updated content
-          mv temp_README.md README.md
+          # Run terraform-docs using the provided configuration file
+          /usr/local/bin/terraform-docs -c .terraform-docs.yml .
 
       - name: Commit and Push Changes
         run: |
