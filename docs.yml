@@ -38,6 +38,16 @@ jobs:
           echo "Updating .terraform-docs.yml to use version $version"
           sed -i "s/^version:.*/version: \"$version\"/" .terraform-docs.yml
 
+    - name: Create _header.md for Submodules
+      run: |
+        # Recursively find all submodules and create _header.md if not present
+        find modules/ -type d -not -path "modules" | while read dir; do
+          if [ ! -f "$dir/_header.md" ]; then
+            echo "Submodule Header for $(basename $dir)" > "$dir/_header.md"
+            echo "Created _header.md in $dir"
+          fi
+        done
+
       - name: Generate Terraform Docs and Update README
         run: |
           # Run terraform-docs using the provided configuration file
