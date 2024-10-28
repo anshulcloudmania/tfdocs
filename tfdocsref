@@ -1,0 +1,28 @@
+resource "null_resource" "check_and_create_headers" {
+  provisioner "local-exec" {
+    command = <<EOT
+      # Recursively find all directories and create _header.md if not present
+      find ${path.module}/modules -type d | while read dir; do
+        if [ ! -f "$dir/_header.md" ]; then
+          echo "${github_repository.git-repository.name}" > "$dir/_header.md"
+          echo "Created _header.md in $dir"
+        fi
+      done
+    EOT
+  }
+}
+
+resource "github_repository_file" "tf_docs_headers_yml" {
+  count             = var.is_module_repo ? 1 : 0
+  repository        = github_repository.git-repository.name
+  branch            = "main"
+  file              = "${each.value}/_header.md"
+  content           = file("${path.module}/${each.value}/_header.md")
+  commit_message    = "Managed by Terraform"
+  commit_author     = "CPTGithubSVCPROD"
+  commit_email      = "CPTGithubSVCPROD@humana.com"
+  overwrite_on_create = true
+
+  for_each          = toset([for d in fileset("${path.module}/modules", "**/") : d if fileexists("${path.module}/modules/${d}")])
+  depends_on        = [null_resource.check_and_create_headers]
+}
