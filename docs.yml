@@ -38,6 +38,37 @@ jobs:
           echo "Updating .terraform-docs.yml to use version $version"
           sed -i "s/^version:.*/version: \"$version\"/" .terraform-docs.yml
 
+- name: Fetch and Install Latest Version of Terraform Docs
+  run: |
+    sed -i "s/version:.*/version: \"$version\"/" .terraform-docs.yml
+
+- name: Create _header.md for Submodules
+  run: |
+    # Check if the 'modules' directory exists and contains any submodules
+    if [ -d "modules" ] && find modules/* -type d -not -path "modules" | grep -q '.'; then
+      echo "Folder 'modules' found and submodules detected."
+      
+      # Set the 'recursive' flag to true in the Terraform Docs configuration
+      sed -i 's/recursive:.*/recursive: true/' .terraform-docs.yml
+
+      # Recursively find nested submodules and create _header.md if not present
+      find modules/* -type d -not -path "modules" | while read dir; do
+        if [ ! -f "$dir/_header.md" ]; then
+          echo "Submodule Header for $(basename $dir)" > "$dir/_header.md"
+          echo "Created _header.md in $dir"
+        fi
+      done
+    else
+      echo "No nested modules or submodules found."
+    fi
+  shell: /usr/bin/bash -e {0}
+
+- name: Generate Terraform Docs and Update README
+  run: |
+    # Run terraform-docs using the provided configuration file
+    /usr/local/bin/terraform-docs -c .terraform-docs.yml .
+  shell: /usr/bin/bash -e {0}
+
     - name: Create _header.md for Submodules
       run: |
         # Recursively find all submodules and create _header.md if not present
